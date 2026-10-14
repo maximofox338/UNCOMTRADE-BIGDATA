@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Export Trade Data Analyzer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e8ecf1;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;overflow-x:hidden}
+.wrap{max-width:1100px;margin:0 auto;padding:36px 24px;position:relative;z-index:1}
+@keyframes floatUp{0%{transform:translateY(0) scale(1);opacity:0}10%{opacity:.5}90%{opacity:.3}100%{transform:translateY(-120vh) scale(.3);opacity:0}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes gradShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 15px rgba(0,198,251,.08)}50%{box-shadow:0 0 30px rgba(0,198,251,.15)}}
+.bubble{position:absolute;border-radius:50%;pointer-events:none}
+.orb{position:fixed;border-radius:50%;pointer-events:none}
+h1.title{font-size:48px;font-weight:700;line-height:1.1;background:linear-gradient(135deg,#fff 0%,#00C6FB 50%,#005BEA 100%);background-size:200% 200%;animation:gradShift 6s ease infinite;-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin:0}
+.subtitle{color:#556677;font-size:14px;text-align:center;margin-top:12px;font-weight:300}
+.tag{font-size:11px;color:#00C6FB;letter-spacing:4px;text-transform:uppercase;text-align:center;margin-bottom:12px;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:36px 0}
+.stat{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:24px;padding:28px 24px;text-align:center;backdrop-filter:blur(20px);animation:fadeIn .8s both;transition:transform .3s,border-color .3s}
+.stat:hover{transform:translateY(-6px);border-color:rgba(0,198,251,.3)}
+.stat-label{font-size:11px;color:#8899aa;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.stat-value{font-size:38px;font-weight:700;background:linear-gradient(135deg,#00C6FB,#005BEA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.stat-sub{font-size:12px;color:#667788;margin-top:8px}
+.tabs{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
+.tab{padding:8px 18px;border-radius:40px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .3s;font-family:inherit;letter-spacing:.3px;background:rgba(255,255,255,.04);color:#8899aa}
+.tab:hover{background:rgba(255,255,255,.08);color:#ccd}
+.tab.active{background:linear-gradient(135deg,#00C6FB,#005BEA);color:#fff;box-shadow:0 4px 16px rgba(0,91,234,.4)}
+.pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.pill{padding:6px 14px;border-radius:18px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#8899aa;cursor:pointer;font-size:11px;transition:all .3s;font-family:inherit;font-weight:500}
+.pill:hover{border-color:rgba(0,198,251,.3);color:#ccd}
+.pill.active{background:rgba(0,198,251,.15);border-color:#00C6FB;color:#00C6FB}
+.chart-box{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:24px;backdrop-filter:blur(10px);margin-bottom:20px;animation:glowPulse 4s infinite}
+.chart-box h3{font-size:20px;font-weight:600;margin:0 0 4px}
+.chart-box p.desc{color:#667788;font-size:12px;margin:0 0 20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:16px}
+.card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px;transition:all .3s}
+.card:hover{transform:translateY(-4px);border-color:rgba(0,198,251,.3)}
+.insight-box{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px;margin-top:16px}
+.insight-box h4{margin:0 0 10px;font-size:14px;color:#00C6FB}
+.insight-box p{font-size:12px;color:#8899aa;margin:0;line-height:1.6}
+.section{display:none;animation:fadeIn .4s both}
+.section.active{display:block}
+.footer{text-align:center;margin-top:50px;padding:20px 0;border-top:1px solid rgba(255,255,255,.05)}
+.footer p{color:#445566;font-size:11px;margin:0}
+.footer p+p{color:#334455;font-size:10px;margin-top:4px}
+.progress{height:3px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;margin-top:8px}
+.progress-bar{height:100%;border-radius:2px;transition:width 1s}
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}h1.title{font-size:32px}.stat-value{font-size:28px}}
+</style>
+</head>
+<body>
+<div id="bubbles" style="position:fixed;inset:0;pointer-events:none;z-index:0"></div>
+<div class="orb" style="top:-20%;right:-10%;width:600px;height:600px;background:radial-gradient(circle,rgba(0,198,251,.07),transparent 70%)"></div>
+<div class="orb" style="bottom:-30%;left:-15%;width:800px;height:800px;background:radial-gradient(circle,rgba(0,91,234,.05),transparent 70%)"></div>
+<div class="wrap">
+  <div class="tag">Hadoop MapReduce Analytics</div>
+  <h1 class="title">Export Trade Data<br>Analyzer</h1>
+  <p class="subtitle">600,000 real records from UN Comtrade · 6 MapReduce Jobs · China Exports 2018-2023</p>
+  <div class="stats">
+    <div class="stat" style="animation-delay:.1s"><div class="stat-label">Records</div><div class="stat-value">600K</div><div class="stat-sub">UN Comtrade 2018-2023</div></div>
+    <div class="stat" style="animation-delay:.2s"><div class="stat-label">Countries</div><div class="stat-value">216</div><div class="stat-sub">Export destinations</div></div>
+    <div class="stat" style="animation-delay:.3s"><div class="stat-label">Products</div><div class="stat-value">5,798</div><div class="stat-sub">HS commodity codes</div></div>
+    <div class="stat" style="animation-delay:.4s"><div class="stat-label">Jobs</div><div class="stat-value">6</div><div class="stat-sub">Hadoop Streaming</div></div>
+  </div>
+  <div class="tabs" id="tabBar"></div>
+  <div id="sec0" class="section active"></div>
+  <div id="sec1" class="section"></div>
+  <div id="sec2" class="section"></div>
+  <div id="sec3" class="section"></div>
+  <div id="sec4" class="section"></div>
+  <div id="sec5" class="section"></div>
+  <div class="footer"><p>Export Trade Data Analyzer — Big Data Processing Technology, Spring 2026</p><p>Data: UN Comtrade | Pipeline: Hadoop MapReduce | 600K Records | 216 Countries | 6 Jobs</p></div>
+</div>
+<script>
+var J1=[{c:"USA",v:1137.3},{c:"Hong Kong",v:468.9},{c:"Japan",v:289.4},{c:"South Korea",v:241.5},{c:"Vietnam",v:194.4},{c:"Germany",v:171.2},{c:"Netherlands",v:170.1},{c:"United Kingdom",v:149.9},{c:"India",v:136.6},{c:"Russia",v:134.8},{c:"Australia",v:133.0},{c:"Malaysia",v:128.3},{c:"Mexico",v:124.2},{c:"Singapore",v:117.7},{c:"Thailand",v:96.3}];
+var J2={"USA":[{d:"Data Processing Machines",v:154.2},{d:"Portable Computers",v:128.2},{d:"Smartphones",v:80.3},{d:"Monitors & Projectors",v:24.9},{d:"Communication Apparatus",v:21.4}],"Hong Kong":[{d:"Data Processing Machines",v:57.9},{d:"Cellular Phones",v:35.9},{d:"Smartphones",v:31.3},{d:"Memory Chips",v:30.3},{d:"Processors",v:22.8}],"Japan":[{d:"Data Processing Machines",v:18.5},{d:"Portable Computers",v:13.6},{d:"Cellular Phones",v:7.6},{d:"Knitted Apparel",v:7.3},{d:"Smartphones",v:6.9}],"South Korea":[{d:"Memory Chips",v:39.0},{d:"Data Processing",v:14.7},{d:"Li-ion Batteries",v:8.3},{d:"Comm. Apparatus",v:3.6},{d:"Monitors",v:3.3}],"Vietnam":[{d:"Processors",v:14.3},{d:"Memory Chips",v:13.8},{d:"Phone Parts",v:6.6},{d:"Flat Panels",v:5.9},{d:"Touch Screens",v:3.1}],"Germany":[{d:"Portable Computers",v:18.4},{d:"Data Processing",v:18.0},{d:"Textiles",v:4.7},{d:"Motor Vehicles",v:4.4},{d:"Static Converters",v:3.5}],"India":[{d:"Data Processing",v:19.4},{d:"Portable Computers",v:5.4},{d:"Flat Panels",v:4.9},{d:"Comm. Apparatus",v:4.5},{d:"Solar Cells",v:4.1}],"Russia":[{d:"Motor Vehicles",v:14.9},{d:"Data Processing",v:9.1},{d:"Cargo Vehicles",v:5.0},{d:"Tractors",v:4.4},{d:"Construction Equip.",v:4.2}]};
+var J3=[{n:"Live Rabbits",d:[{y:2021,a:72.0},{y:2022,a:90.3},{y:2023,a:146.9}]},{n:"Reptiles",d:[{y:2021,a:78.8},{y:2022,a:50.6},{y:2023,a:83.3}]},{n:"Live Swine",d:[{y:2021,a:5.15},{y:2022,a:3.80},{y:2023,a:3.44}]},{n:"Live Goats",d:[{y:2021,a:8.04},{y:2022,a:7.56},{y:2023,a:6.61}]},{n:"Frozen Fish",d:[{y:2018,a:3.02},{y:2019,a:2.26},{y:2020,a:3.46}]},{n:"Fish Fillets",d:[{y:2018,a:4.21},{y:2019,a:5.96},{y:2020,a:4.52}]}];
+var J4=[{c:"Kyrgyzstan",yf:"2020",yt:"2021",f:0.65,t:8.75,g:1239},{c:"France",yf:"2020",yt:"2021",f:3.06,t:31.13,g:919},{c:"Netherlands",yf:"2018",yt:"2021",f:7.49,t:68.76,g:818},{c:"Poland",yf:"2018",yt:"2021",f:2.64,t:20.13,g:664},{c:"Greece",yf:"2018",yt:"2021",f:1.16,t:8.81,g:657},{c:"Kazakhstan",yf:"2020",yt:"2021",f:1.69,t:10.70,g:533},{c:"Belgium",yf:"2018",yt:"2021",f:3.45,t:19.99,g:480},{c:"Saudi Arabia",yf:"2018",yt:"2021",f:3.53,t:19.73,g:459}];
+var J5={"USA":[21.6,60.7,104.4,350.4,386.9,213.3],"Hong Kong":[32.9,0,46.0,230.7,89.5,69.7],"Japan":[29.2,0,41.8,94.1,85.0,39.3],"South Korea":[30.1,0,36.4,71.8,78.0,25.2],"Germany":[7.4,0,20.7,62.1,56.1,24.9],"Russia":[5.4,0,14.3,44.7,24.0,46.4],"India":[20.9,0,20.3,34.3,34.8,26.3],"Vietnam":[38.1,0,37.8,52.6,42.0,23.8]};
+var J6={"2018":[{d:"Petroleum Oils",v:23.8},{d:"Telephone Parts",v:16.7},{d:"Coated Steel",v:12.4},{d:"Alloy Steel",v:9.0},{d:"Synthetic Fabrics",v:7.7}],"2019":[{d:"Plastic Articles",v:5.8},{d:"Plastic Household",v:3.4},{d:"Festive Articles",v:3.1},{d:"Plastic Flooring",v:2.9},{d:"Plastic Containers",v:2.2}],"2020":[{d:"Textile/PPE",v:42.6},{d:"Plastic Articles",v:22.8},{d:"Computer Parts",v:21.0},{d:"Petroleum Oils",v:19.6},{d:"Insulated Wire",v:13.6}],"2021":[{d:"Computers",v:188.6},{d:"Laptops",v:101.7},{d:"Cellular Phones",v:92.8},{d:"Memory Chips",v:61.9},{d:"Processors",v:45.6}],"2022":[{d:"Computers",v:140.2},{d:"Smartphones",v:104.2},{d:"Laptops",v:103.4},{d:"Motor Vehicles",v:44.6},{d:"Comm. Apparatus",v:40.4}],"2023":[{d:"Computers",v:145.2},{d:"Motor Vehicles",v:75.7},{d:"Smartphones",v:46.5},{d:"Flat Panels",v:38.1},{d:"Laptops",v:38.0}]};
+var YRS=[2018,2019,2020,2021,2022,2023];
+var CL=["#00C6FB","#005BEA","#00D2FF","#3A7BD5","#6DD5FA","#2193B0","#56CCF2","#0575E6","#00B4DB","#48C9B0","#1ABC9C","#2ECC71","#3498DB","#9B59B6","#E74C3C"];
+var INS={"2018":"Petroleum oils led at $23.8B. Traditional manufacturing and raw materials dominated.","2019":"Plastics dominated a transitional year as trade patterns shifted pre-pandemic.","2020":"COVID-19 drove textile/PPE to $42.6B (#1). Plastic articles surged for medical supplies.","2021":"Post-pandemic boom: Computers $188.6B, Laptops $101.7B, Phones $92.8B.","2022":"Smartphones overtook laptops at $104.2B. EVs emerged at $44.6B.","2023":"Motor vehicles surged to $75.7B (+70% YoY) — China's EV dominance."};
+
+Chart.defaults.color="#8899aa";Chart.defaults.borderColor="rgba(255,255,255,.04)";
+
+(function(){var c=document.getElementById("bubbles");[[60,5,0,18],[40,15,3,22],[80,25,1,20],[35,40,5,25],[55,55,2,19],[45,70,4,23],[70,80,.5,21],[30,90,6,17],[50,35,7,24],[65,60,1.5,20]].forEach(function(p,i){var d=document.createElement("div");d.className="bubble";d.style.cssText="width:"+p[0]+"px;height:"+p[0]+"px;left:"+p[1]+"%;bottom:-20%;background:radial-gradient(circle at 30% 30%,"+CL[i%CL.length]+"40,"+CL[i%CL.length]+"10);border:1px solid "+CL[i%CL.length]+"20;animation:floatUp "+p[3]+"s "+p[2]+"s infinite ease-in-out";c.appendChild(d)})})();
+
+var tabNames=["Overview","Products by Market","Yearly Evolution","Products by Year","Price Trends","Emerging Markets"];
+var curTab=0,curMkt="USA",curYr="2023",charts={};
+
+function setTab(i){curTab=i;document.querySelectorAll(".tab").forEach(function(t,j){t.className="tab"+(j===i?" active":"")});document.querySelectorAll(".section").forEach(function(s,j){s.className="section"+(j===i?" active":"")});renderTab(i)}
+(function(){var bar=document.getElementById("tabBar");tabNames.forEach(function(n,i){var b=document.createElement("button");b.className="tab"+(i===0?" active":"");b.textContent=n;b.onclick=function(){setTab(i)};bar.appendChild(b)})})();
+
+function dc(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+function mc(par,id,h){var d=document.createElement("div");d.style.cssText="height:"+(h||400)+"px;position:relative";var c=document.createElement("canvas");c.id=id;d.appendChild(c);par.appendChild(d);return c}
+
+function renderTab(i){
+var s=document.getElementById("sec"+i);s.innerHTML="";
+if(i===0){
+  var b=document.createElement("div");b.className="chart-box";b.innerHTML='<h3>Top Export Destinations</h3><p class="desc">Total export value by country (2018-2023), billions USD</p>';var cv=mc(b,"c0",400);s.appendChild(b);dc("c0");
+  charts.c0=new Chart(cv,{type:"bar",data:{labels:J1.map(function(d){return d.c}),datasets:[{data:J1.map(function(d){return d.v}),backgroundColor:CL.slice(0,J1.length),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return"$"+c.raw.toFixed(1)+"B"}}}},scales:{x:{ticks:{font:{size:10},maxRotation:45},grid:{display:false}},y:{ticks:{callback:function(v){return"$"+v+"B"}},grid:{color:"rgba(255,255,255,.04)"}}}}});
+  var b2=document.createElement("div");b2.className="chart-box";b2.innerHTML='<h3>Market Share</h3><p class="desc">Distribution among top 8 destinations</p>';var cv2=mc(b2,"c0b",300);s.appendChild(b2);dc("c0b");
+  charts.c0b=new Chart(cv2,{type:"doughnut",data:{labels:J1.slice(0,8).map(function(d){return d.c}),datasets:[{data:J1.slice(0,8).map(function(d){return d.v}),backgroundColor:CL.slice(0,8),borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:"55%",plugins:{legend:{position:"right",labels:{color:"#ccd",font:{size:11},padding:12,usePointStyle:true,pointStyleWidth:8}},tooltip:{callbacks:{label:function(c){return c.label+": $"+c.raw.toFixed(1)+"B"}}}}}});
+}else if(i===1){
+  var pl=document.createElement("div");pl.className="pills";Object.keys(J2).forEach(function(m){var b=document.createElement("button");b.className="pill"+(m===curMkt?" active":"");b.textContent=m;b.onclick=function(){curMkt=m;renderTab(1)};pl.appendChild(b)});s.appendChild(pl);
+  var pr=J2[curMkt]||[];var bx=document.createElement("div");bx.className="chart-box";bx.innerHTML='<h3>Top Products — '+curMkt+'</h3><p class="desc">Highest value export categories</p>';var cv=mc(bx,"c1",300);s.appendChild(bx);dc("c1");
+  charts.c1=new Chart(cv,{type:"bar",data:{labels:pr.map(function(p){return p.d}),datasets:[{data:pr.map(function(p){return p.v}),backgroundColor:CL.slice(0,pr.length),borderRadius:6,borderSkipped:false}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return"$"+c.raw.toFixed(1)+"B"}}}},scales:{x:{ticks:{callback:function(v){return"$"+v+"B"}},grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{color:"#ccd",font:{size:11}},grid:{display:false}}}}});
+  var cd=document.createElement("div");cd.className="cards";pr.forEach(function(p,j){cd.innerHTML+='<div class="card"><div style="font-size:13px;font-weight:600;margin-bottom:6px">'+p.d+'</div><div style="font-size:22px;font-weight:700;background:linear-gradient(135deg,'+CL[j]+','+CL[(j+2)%CL.length]+');-webkit-background-clip:text;-webkit-text-fill-color:transparent">$'+p.v.toFixed(1)+'B</div></div>'});s.appendChild(cd);
+}else if(i===2){
+  var bx=document.createElement("div");bx.className="chart-box";bx.innerHTML='<h3>Export Volume by Year</h3><p class="desc">Year-over-year evolution for top countries (billions USD)</p>';var cv=mc(bx,"c2",400);s.appendChild(bx);dc("c2");
+  var ds=[],ks=["USA","Japan","Germany","Russia","India"];ks.forEach(function(c,j){ds.push({label:c,data:J5[c],borderColor:CL[j],backgroundColor:CL[j]+"20",fill:true,tension:.3,pointRadius:4,pointBackgroundColor:CL[j],borderWidth:2.5})});
+  charts.c2=new Chart(cv,{type:"line",data:{labels:YRS,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#ccd",font:{size:11},usePointStyle:true,padding:16}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": $"+c.raw.toFixed(1)+"B"}}}},scales:{x:{grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{callback:function(v){return"$"+v+"B"}},grid:{color:"rgba(255,255,255,.04)"}}}}});
+}else if(i===3){
+  var pl=document.createElement("div");pl.className="pills";Object.keys(J6).forEach(function(y){var b=document.createElement("button");b.className="pill"+(y===curYr?" active":"");b.textContent=y;b.onclick=function(){curYr=y;renderTab(3)};pl.appendChild(b)});s.appendChild(pl);
+  var pr=J6[curYr]||[];var bx=document.createElement("div");bx.className="chart-box";bx.innerHTML='<h3>Top Products — '+curYr+'</h3><p class="desc">Highest value categories</p>';var cv=mc(bx,"c3",300);s.appendChild(bx);dc("c3");
+  charts.c3=new Chart(cv,{type:"bar",data:{labels:pr.map(function(p){return p.d}),datasets:[{data:pr.map(function(p){return p.v}),backgroundColor:pr.map(function(_,j){return"hsl("+(190+j*12)+",75%,55%)"}),borderRadius:6,borderSkipped:false}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return"$"+c.raw.toFixed(1)+"B"}}}},scales:{x:{ticks:{callback:function(v){return"$"+v+"B"}},grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{color:"#ccd",font:{size:11}},grid:{display:false}}}}});
+  var ib=document.createElement("div");ib.className="insight-box";ib.innerHTML='<h4>Key Insights — '+curYr+'</h4><p>'+INS[curYr]+'</p>';s.appendChild(ib);
+}else if(i===4){
+  var bx=document.createElement("div");bx.className="chart-box";bx.innerHTML='<h3>Unit Price Trends</h3><p class="desc">Average price per kg (USD/kg) — MapReduce Job 3</p>';var cv=mc(bx,"c4",380);s.appendChild(bx);dc("c4");
+  var ay=[];J3.forEach(function(p){p.d.forEach(function(pt){if(ay.indexOf(pt.y)<0)ay.push(pt.y)})});ay.sort();
+  var ds=J3.map(function(p,j){return{label:p.n,data:ay.map(function(y){var pt=p.d.find(function(x){return x.y===y});return pt?pt.a:null}),borderColor:CL[j],backgroundColor:CL[j],tension:.3,pointRadius:5,pointBackgroundColor:CL[j],borderWidth:2.5,spanGaps:false}});
+  charts.c4=new Chart(cv,{type:"line",data:{labels:ay,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#ccd",font:{size:11},usePointStyle:true,padding:12}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": $"+(c.raw||0).toFixed(2)+"/kg"}}}},scales:{x:{grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{callback:function(v){return"$"+v}},grid:{color:"rgba(255,255,255,.04)"}}}}});
+  var cd=document.createElement("div");cd.className="cards";cd.style.gridTemplateColumns="repeat(3,1fr)";
+  J3.forEach(function(p,j){var f=p.d[0],l=p.d[p.d.length-1],ch=((l.a-f.a)/f.a*100).toFixed(1),up=l.a>=f.a;cd.innerHTML+='<div class="card"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:7px;height:7px;border-radius:50%;background:'+CL[j]+'"></div><span style="font-size:12px;font-weight:600">'+p.n+'</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:#667788">$'+f.a.toFixed(1)+'→$'+l.a.toFixed(1)+'/kg</span><span style="font-size:13px;font-weight:700;color:'+(up?"#2ECC71":"#E74C3C")+'">'+(up?"+":"")+ch+'%</span></div></div>'});s.appendChild(cd);
+}else if(i===5){
+  var bx=document.createElement("div");bx.className="chart-box";bx.innerHTML='<h3>Emerging Markets</h3><p class="desc">Countries with highest export growth rate (%)</p>';var cv=mc(bx,"c5",360);s.appendChild(bx);dc("c5");
+  charts.c5=new Chart(cv,{type:"bar",data:{labels:J4.map(function(g){return g.c}),datasets:[{data:J4.map(function(g){return g.g}),backgroundColor:J4.map(function(_,j){return"hsl("+(150+j*14)+",65%,52%)"}),borderRadius:6,borderSkipped:false}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var g=J4[c.dataIndex];return"+"+g.g+"% ("+g.yf+"→"+g.yt+")"}}}},scales:{x:{ticks:{callback:function(v){return v+"%"}},grid:{color:"rgba(255,255,255,.04)"}},y:{ticks:{color:"#ccd",font:{size:11}},grid:{display:false}}}}});
+  var cd=document.createElement("div");cd.className="cards";
+  J4.forEach(function(g,j){var cl="hsl("+(150+j*14)+",65%,52%)";cd.innerHTML+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:14px;font-weight:700">'+g.c+'</span><span style="font-size:18px;font-weight:800;color:'+cl+'">+'+g.g+'%</span></div><div style="font-size:11px;color:#667788">'+g.yf+' → '+g.yt+'</div><div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px"><span style="color:#8899aa">$'+g.f.toFixed(1)+'B</span><span style="color:#00C6FB">→</span><span style="font-weight:600">$'+g.t.toFixed(1)+'B</span></div><div class="progress"><div class="progress-bar" style="background:'+cl+';width:'+Math.min(g.g/13,100)+'%"></div></div></div>'});s.appendChild(cd);
+}}
+renderTab(0);
+</script>
+</body>
+</html>
